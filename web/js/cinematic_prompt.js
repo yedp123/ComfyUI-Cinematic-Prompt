@@ -1,8 +1,10 @@
+// !!! CRITICAL FIX: Added extra "../" to reach the root folder from "web/js/"
 import { app } from "../../../scripts/app.js";
 
 // --- CSS STYLES ---
 const style = `
 <style>
+    /* Main Container - The "Cinema" Box */
     .yedp-container {
         --bg-dark: #1e1e1e;
         --bg-panel: #252526;
@@ -10,7 +12,7 @@ const style = `
         --bg-hover: #3e3e42;
         --text-main: #e0e0e0;
         --text-muted: #858585;
-        --accent: #F5C518;
+        --accent: #F5C518; /* IMDb/Cinema Gold */
         --border: #444444;
         --radius: 6px;
         font-family: 'Inter', sans-serif;
@@ -19,7 +21,7 @@ const style = `
         display: flex;
         flex-direction: column;
         width: 100%;
-        height: 850px;
+        height: 850px; /* Taller to fit all options */
         overflow: hidden;
         border-radius: 8px;
         font-size: 12px;
@@ -29,6 +31,7 @@ const style = `
     
     .yedp-layout { display: flex; height: 100%; }
     
+    /* Left Sidebar */
     .yedp-sidebar { 
         width: 280px; 
         background: var(--bg-panel); 
@@ -41,6 +44,7 @@ const style = `
         gap: 12px;
     }
 
+    /* Right Preview Area */
     .yedp-main { 
         flex: 1; 
         padding: 20px; 
@@ -51,6 +55,7 @@ const style = `
         gap: 15px; 
     }
 
+    /* Typography */
     .yedp-label { 
         font-size: 0.7rem; 
         font-weight: 800; 
@@ -61,6 +66,7 @@ const style = `
         display: block; 
     }
 
+    /* Inputs */
     .yedp-input, .yedp-textarea { 
         background: var(--bg-input); 
         border: 1px solid var(--border); 
@@ -73,6 +79,7 @@ const style = `
     .yedp-textarea { resize: vertical; min-height: 40px; font-family: sans-serif; }
     .yedp-input:focus, .yedp-textarea:focus { border-color: var(--accent); outline: none; }
 
+    /* List Buttons (Camera, Lighting etc) */
     .yedp-btn { 
         background: var(--bg-input); 
         border: 1px solid transparent; 
@@ -95,6 +102,7 @@ const style = `
         font-weight: bold;
     }
 
+    /* Grid Buttons (Ratios) */
     .yedp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
     .yedp-grid-item { 
         background: var(--bg-input); 
@@ -109,11 +117,13 @@ const style = `
     .yedp-grid-item:hover { background: var(--bg-hover); }
     .yedp-grid-item.active { border-color: var(--accent); background: rgba(245, 197, 24, 0.1); color: var(--accent); }
 
+    /* Slider Control */
     .yedp-slider-wrapper { padding: 5px 0; }
     .yedp-slider-header { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--accent); font-weight: bold; }
     .yedp-range { width: 100%; cursor: pointer; accent-color: var(--accent); }
     .yedp-slider-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
 
+    /* Preview Image Box */
     .yedp-preview-box { 
         width: 100%; 
         height: 250px; 
@@ -136,6 +146,17 @@ const style = `
     }
     .yedp-preview-img.loaded { opacity: 1; }
     
+    .yedp-preview-overlay {
+        position: absolute;
+        bottom: 10px;
+        background: rgba(0,0,0,0.8);
+        color: var(--accent);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    /* Info Box */
     .yedp-info-box {
         background: rgba(245, 197, 24, 0.05);
         border-left: 3px solid var(--accent);
@@ -147,6 +168,7 @@ const style = `
     .yedp-info-title { color: var(--accent); font-weight: bold; font-size: 0.9rem; display: block; margin-bottom: 4px; }
     .yedp-info-text { color: #ccc; font-size: 0.8rem; line-height: 1.4; }
 
+    /* Final Output Area */
     .yedp-output { 
         width: 100%; 
         height: 80px; 
@@ -158,8 +180,10 @@ const style = `
         font-size: 0.85rem; 
         border-radius: 4px;
     }
+    /* HIGHLIGHT EDITABLE STATUS */
     .yedp-output:focus { border-color: var(--accent); box-shadow: 0 0 5px rgba(245, 197, 24, 0.3); outline: none; }
 
+    /* Action Buttons */
     .yedp-actions { margin-top: auto; display: flex; gap: 10px; }
     .yedp-btn-action { 
         background: var(--bg-input); 
@@ -171,14 +195,21 @@ const style = `
         font-weight: bold; 
         flex: 1; 
         text-align: center;
+        transition: all 0.2s;
     }
     .yedp-btn-action:hover { background: var(--bg-hover); }
+    .yedp-btn-primary { background: var(--accent); color: #000; border: none; }
+    .yedp-btn-primary:hover { background: #d4a017; }
+    .yedp-btn-reset { background: #333; color: #aaa; border: 1px solid #555; }
+    .yedp-btn-reset:hover { background: #444; color: #fff; }
 </style>
 `;
 
+// --- ASSET CONFIGURATION ---
 const ASSET_PATH = new URL("../assets/", import.meta.url).href; 
 const ASSET_EXT = ".jpg";
 
+// --- FULL DATA DEFINITIONS ---
 const categories = {
     ratio: { 
         title: "Aspect Ratio", type: "ratio", 
@@ -225,7 +256,7 @@ const categories = {
         options: [
             {id:"arri", label:"Arri Alexa LF", value:"shot on Arri Alexa LF", desc:"The industry standard for digital cinema. High dynamic range."}, 
             {id:"imax70", label:"IMAX 70mm Film", value:"shot on IMAX 70mm Film", desc:"Unmatched resolution and depth. The Nolan look."}, 
-            {id:"panavision", label:"Panavision", value:"shot on Panavision Millennium DXL2", desc:"Warm skin tones and classic Hollywood aesthetics."},
+            {id:"panavision", label:"Panavision Millennium", value:"shot on Panavision Millennium DXL2", desc:"Warm skin tones and classic Hollywood aesthetics."},
             {id:"sony", label:"Sony Venice 2", value:"shot on Sony Venice 2", desc:"Modern, sharp, incredible low light performance."}, 
             {id:"iphone", label:"iPhone 15 Pro", value:"shot on iPhone 15 Pro", desc:"Digital, sharp, deep depth of field. Modern vlog style."}, 
             {id:"polaroid", label:"Polaroid SX-70", value:"Polaroid SX-70 instant film", desc:"Soft, nostalgic, chemical borders and faded colors."}, 
@@ -353,6 +384,7 @@ const categories = {
     }
 };
 
+// --- MAIN EXTENSION REGISTRATION ---
 app.registerExtension({
     name: "Yedp.CinematicPrompt",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
@@ -435,32 +467,43 @@ app.registerExtension({
                     // Assemble based on mode
                     if (p.mode === 'flux' || p.mode === 'nanobanana') {
                          const prefix = p.mode === 'nanobanana' ? "High-end cinematic photography: " : "";
+                         // Handle empty framing or other missing parts gracefully in template string if needed, 
+                         // but standard JS template strings are fine with empty variables.
                          final = `${prefix}A ${frame} of ${p.subject}, shot at ${ang} on ${cam} with a ${focal} at aperture ${dofVal}. The lighting is ${light} with ${pal} color grade. In the style of ${artist}. Visuals: ${styles}. ${textures}. ${ratio}`;
+                         // Clean up double spaces from missing values
+                         final = final.replace(/\s+/g, ' ').replace(/\s+\./g, '.').trim();
                     } else if (p.mode === 'midjourney') {
                         // MJ Style
-                        parts.push(styles);
-                        parts.push(`${frame} of ${p.subject}`);
-                        parts.push(cam);
-                        parts.push(focal);
-                        parts.push(dofVal); // e.g. f/1.2
-                        parts.push(ang);
-                        parts.push(light);
-                        parts.push(pal);
-                        parts.push(artist);
+                        if(styles) parts.push(styles);
+                        // Handle Frame specially
+                        if(frame) parts.push(`${frame} of ${p.subject}`);
+                        else parts.push(`${p.subject}`);
+                        
+                        if(cam) parts.push(cam);
+                        if(focal) parts.push(focal);
+                        if(dofVal) parts.push(dofVal); 
+                        if(ang) parts.push(ang);
+                        if(light) parts.push(light);
+                        if(pal) parts.push(pal);
+                        if(artist) parts.push(artist);
                         if(textures) parts.push(textures);
-                        final = parts.filter(x=>x).join(", ") + " " + ratio;
+                        
+                        final = parts.filter(x=>x).join(", ") + (ratio ? " " + ratio : "");
                     } else {
                         // SD Standard
-                        parts.push(styles);
-                        parts.push(`${frame} of ${p.subject}`);
-                        parts.push(cam);
-                        parts.push(focal);
-                        parts.push(`aperture ${dofVal}`);
-                        parts.push(ang);
-                        parts.push(light);
-                        parts.push(pal);
-                        parts.push(artist);
+                        if(styles) parts.push(styles);
+                        if(frame) parts.push(`${frame} of ${p.subject}`);
+                        else parts.push(`${p.subject}`);
+                        
+                        if(cam) parts.push(cam);
+                        if(focal) parts.push(focal);
+                        if(dofVal) parts.push(`aperture ${dofVal}`);
+                        if(ang) parts.push(ang);
+                        if(light) parts.push(light);
+                        if(pal) parts.push(pal);
+                        if(artist) parts.push(artist);
                         if(textures) parts.push(textures);
+                        
                         final = parts.filter(x=>x).join(", ");
                     }
                     
@@ -611,7 +654,12 @@ app.registerExtension({
                                             this.state[key] = this.state[key].filter(x => x !== opt.id);
                                         else this.state[key].push(opt.id);
                                     } else {
-                                        this.state[key] = opt.id;
+                                        // SINGLE SELECT TOGGLE LOGIC
+                                        if (this.state[key] === opt.id) {
+                                            this.state[key] = ""; // Deselect
+                                        } else {
+                                            this.state[key] = opt.id; // Select
+                                        }
                                     }
                                     renderControls(); 
                                     updatePreview(key, opt.id);
@@ -637,7 +685,12 @@ app.registerExtension({
                                 btn.onmouseenter = () => updatePreview(key, opt.id);
                                 
                                 btn.onclick = () => {
-                                    this.state[key] = opt.id;
+                                    // SINGLE SELECT TOGGLE LOGIC
+                                    if (this.state[key] === opt.id) {
+                                        this.state[key] = ""; // Deselect
+                                    } else {
+                                        this.state[key] = opt.id; // Select
+                                    }
                                     renderControls();
                                     updateOutputs();
                                 };
@@ -689,6 +742,7 @@ app.registerExtension({
                                 
                                 <div class="yedp-actions">
                                     <button class="yedp-btn-action random-btn">🎲 Randomize</button>
+                                    <button class="yedp-btn-action reset-btn" style="background: #333; border-color: #666; margin-left: 5px;">↺ Reset</button>
                                 </div>
                             </div>
                         </div>
@@ -699,6 +753,7 @@ app.registerExtension({
                     const negInput = container.querySelector(".negative-input");
                     const modeSelect = container.querySelector(".mode-select");
                     const randBtn = container.querySelector(".random-btn");
+                    const resetBtn = container.querySelector(".reset-btn");
                     const posOut = container.querySelector(".positive-output"); // Final Output Box
 
                     subjInput.oninput = (e) => { this.state.subject = e.target.value; updateOutputs(); };
@@ -726,6 +781,25 @@ app.registerExtension({
                         renderControls();
                         updateOutputs();
                         updatePreview('camera', this.state.camera);
+                    };
+
+                    // Reset
+                    resetBtn.onclick = () => {
+                        this.state.camera = "";
+                        this.state.framing = "";
+                        this.state.angle = "";
+                        this.state.focal = "";
+                        this.state.lighting = "";
+                        this.state.palette = "";
+                        this.state.artist = "";
+                        this.state.style = [];
+                        this.state.texture = [];
+                        this.state.ratio = "16-9";
+                        this.state.dof = 2;
+                        
+                        renderControls();
+                        updateOutputs();
+                        updatePreview('camera', 'arri'); // Reset preview to a default
                     };
 
                     // Initial Render
