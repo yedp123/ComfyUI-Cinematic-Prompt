@@ -4,7 +4,7 @@ A visual, user-friendly prompt builder for ComfyUI that allows you to construct 
 Originally designed as a self learning tool to generate cinematic prompts (https://yedp123.github.io/), I decided to port it to ComfyUI as well.
 Designed originally with Midjourney, Stable Diffusion, Nanobanana pro and Flux workflows in mind.
 
-<img width="1361" height="826" alt="3ded38f1706d7856b1df4a8efd170598" src="https://github.com/user-attachments/assets/897e3f8d-cad9-4090-a287-08306937b91d" />
+<img width="1746" height="800" alt="14b5a7c66e5b9c8ed62599a73055fbdc" src="https://github.com/user-attachments/assets/08cb73e7-71d6-41cb-9a7d-9dec288e08d3" />
 
 --------------------------------------------------------------------------
 
@@ -15,16 +15,12 @@ Designed originally with Midjourney, Stable Diffusion, Nanobanana pro and Flux w
 - Drag & Drop: Fully embedded inside a ComfyUI node.
 - Drop-in Replacement: Works exactly like a CLIP Text Encode node. Connect your CLIP model, get Conditioning out.
 
-Categories Include:
+<ins>Categories Include:</ins>
 
 📸 Camera Models (Arri Alexa, Sony Venice, GoPro, etc.)
-
 🔭 Focal Lengths (14mm to 200mm)
-
 💡 Lighting (Volumetric, Golden Hour, Neon, etc.)
-
 🎨 Art Styles (Filmic, Analog, Anime, etc.)
-
 🖼️ Aspect Ratios (16:9, 9:16, 2.35:1, etc.)
 
 --------------------------------------------------------------------------
