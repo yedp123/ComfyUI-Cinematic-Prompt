@@ -1,3 +1,5 @@
+  **UPDATE : Includes both the Prompt Builder (for text generation) and the Reference Loader (for image-to-image workflows).** 
+
 🎬 <ins><strong>ComfyUI Cinematic Prompt Builder</strong></ins>
 
 A visual, user-friendly prompt builder for ComfyUI that allows you to construct complex cinematic prompts using a visual interface with previews.
