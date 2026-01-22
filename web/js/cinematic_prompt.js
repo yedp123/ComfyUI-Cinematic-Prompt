@@ -4,7 +4,7 @@ import { app } from "../../../scripts/app.js";
 // --- CSS STYLES ---
 const style = `
 <style>
-    /* Main Container - The "Cinema" Box */
+    /* Main Container */
     .yedp-container {
         --bg-dark: #1e1e1e;
         --bg-panel: #252526;
@@ -21,7 +21,8 @@ const style = `
         display: flex;
         flex-direction: column;
         width: 100%;
-        height: 850px; /* Taller to fit all options */
+        height: 100%;
+        min-height: 600px;
         overflow: hidden;
         border-radius: 8px;
         font-size: 12px;
@@ -55,7 +56,6 @@ const style = `
         gap: 15px; 
     }
 
-    /* Typography */
     .yedp-label { 
         font-size: 0.7rem; 
         font-weight: 800; 
@@ -66,7 +66,6 @@ const style = `
         display: block; 
     }
 
-    /* Inputs */
     .yedp-input, .yedp-textarea { 
         background: var(--bg-input); 
         border: 1px solid var(--border); 
@@ -79,7 +78,6 @@ const style = `
     .yedp-textarea { resize: vertical; min-height: 40px; font-family: sans-serif; }
     .yedp-input:focus, .yedp-textarea:focus { border-color: var(--accent); outline: none; }
 
-    /* List Buttons (Camera, Lighting etc) */
     .yedp-btn { 
         background: var(--bg-input); 
         border: 1px solid transparent; 
@@ -102,7 +100,6 @@ const style = `
         font-weight: bold;
     }
 
-    /* Grid Buttons (Ratios) */
     .yedp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
     .yedp-grid-item { 
         background: var(--bg-input); 
@@ -117,13 +114,11 @@ const style = `
     .yedp-grid-item:hover { background: var(--bg-hover); }
     .yedp-grid-item.active { border-color: var(--accent); background: rgba(245, 197, 24, 0.1); color: var(--accent); }
 
-    /* Slider Control */
     .yedp-slider-wrapper { padding: 5px 0; }
     .yedp-slider-header { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--accent); font-weight: bold; }
     .yedp-range { width: 100%; cursor: pointer; accent-color: var(--accent); }
     .yedp-slider-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
 
-    /* Preview Image Box */
     .yedp-preview-box { 
         width: 100%; 
         height: 250px; 
@@ -156,7 +151,6 @@ const style = `
         font-size: 0.8rem;
     }
 
-    /* Info Box */
     .yedp-info-box {
         background: rgba(245, 197, 24, 0.05);
         border-left: 3px solid var(--accent);
@@ -168,7 +162,6 @@ const style = `
     .yedp-info-title { color: var(--accent); font-weight: bold; font-size: 0.9rem; display: block; margin-bottom: 4px; }
     .yedp-info-text { color: #ccc; font-size: 0.8rem; line-height: 1.4; }
 
-    /* Final Output Area */
     .yedp-output { 
         width: 100%; 
         height: 80px; 
@@ -180,10 +173,8 @@ const style = `
         font-size: 0.85rem; 
         border-radius: 4px;
     }
-    /* HIGHLIGHT EDITABLE STATUS */
     .yedp-output:focus { border-color: var(--accent); box-shadow: 0 0 5px rgba(245, 197, 24, 0.3); outline: none; }
 
-    /* Action Buttons */
     .yedp-actions { margin-top: auto; display: flex; gap: 10px; }
     .yedp-btn-action { 
         background: var(--bg-input); 
@@ -205,7 +196,6 @@ const style = `
 </style>
 `;
 
-// --- ASSET CONFIGURATION ---
 const ASSET_PATH = new URL("../assets/", import.meta.url).href; 
 const ASSET_EXT = ".jpg";
 
@@ -323,7 +313,8 @@ const categories = {
             {id:"highcon", label:"High Contrast", value:"high contrast", desc:"Deep blacks and bright whites. Dramatic."},
             {id:"mono", label:"Monochromatic", value:"monochromatic color scheme", desc:"Using shades of a single color."},
             {id:"neonpal", label:"Neon Palette", value:"neon color palette", desc:"Electric greens, pinks, purples."},
-            {id:"sepia", label:"Sepia", value:"sepia tone", desc:"Old western, flashback, antique."}
+            {id:"sepia", label:"Sepia", value:"sepia tone", desc:"Old western, flashback, antique."},
+            {id:"vapor", label:"Vaporwave", value:"vaporwave aesthetic", desc:"Retro-futuristic 80s dreamscapes with pink and teal hues."}
         ]
     },
     texture: { 
@@ -384,451 +375,549 @@ const categories = {
     }
 };
 
-// --- MAIN EXTENSION REGISTRATION ---
-app.registerExtension({
-    name: "Yedp.CinematicPrompt",
-    async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        if (nodeData.name === "CinematicPromptNode") {
-            
-            // --- Node Created Hook ---
-            const onNodeCreated = nodeType.prototype.onNodeCreated;
-            nodeType.prototype.onNodeCreated = function () {
-                const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
-                
-                this.bgcolor = "#222"; 
+// --- HELPER: UPDATE PREVIEW ---
+// Shared helper function to update the visual reference monitor
+const updatePreviewLogic = (container, catKey, id, nodeTypeStr, node) => {
+    const img = container.querySelector(".yedp-preview-img");
+    const infoTitle = container.querySelector(".yedp-info-title");
+    const infoText = container.querySelector(".yedp-info-text");
+    
+    if(!img) return;
 
-                // --- HIDE DEFAULT WIDGETS ---
-                if (this.widgets) {
-                    for (let w of this.widgets) {
-                        w.type = "hidden"; 
-                        w.computeSize = () => [0, -4]; 
+    let opt;
+    if(catKey === 'dof') opt = categories.dof.options[id];
+    else opt = categories[catKey]?.options?.find(o=>o.id === id);
+
+    if (!opt) return;
+
+    if(infoTitle && infoText) {
+        infoTitle.innerText = opt.label;
+        infoText.innerText = opt.desc || "";
+    }
+
+    // SKIP RATIO FOR PREVIEW (Loader Logic uses this to skip invalid loads)
+    if (categories[catKey].type === 'ratio') return; 
+
+    // Update Hidden Widget for LOADER NODE only
+    if (nodeTypeStr === "loader") {
+        if (node.widgets && node.widgets[0]) {
+            // Send "category_id" (e.g. "camera_arri") to Python
+            node.widgets[0].value = `${catKey}_${opt.id}`;
+        }
+    }
+
+    img.classList.remove("loaded");
+    const cb = "?t=" + new Date().getTime();
+    const filenameBase = `${catKey}_${opt.id}`;
+    
+    img.onload = () => img.classList.add("loaded");
+    img.onerror = function() {
+        const currentSrc = this.src;
+        if (currentSrc.includes(".jpg")) this.src = ASSET_PATH + filenameBase + ".png" + cb;
+        else if (currentSrc.includes(".png")) this.src = ASSET_PATH + filenameBase + ".jpeg" + cb;
+        else {
+            this.src = `https://placehold.co/400x300/222/666?text=${catKey}:${opt.id}`;
+            this.classList.add("loaded");
+            this.onerror = null;
+        }
+    };
+    img.src = ASSET_PATH + filenameBase + ".jpg" + cb;
+};
+
+
+// 1. PROMPT BUILDER UI
+function createPromptBuilderUI(node) {
+    node.bgcolor = "#222"; 
+    
+    // Hide Widgets
+    if (node.widgets) {
+        for (let w of node.widgets) {
+            w.type = "hidden"; 
+            w.computeSize = () => [0, -4]; 
+        }
+    }
+
+    node.defaultState = {
+        mode: "stablediffusion", ratio: "16-9", camera: "arri", framing: "wide",
+        angle: "eye", focal: "50mm", dof: 2, lighting: "volumetric", palette: "tealorange",
+        texture: [], style: ["photo", "cine"], artist: "wes",
+        subject: "A lone astronaut", negative: ""
+    };
+    node.state = Object.assign({}, node.defaultState);
+
+    const container = document.createElement("div");
+    container.className = "yedp-container";
+    container.innerHTML = `${style}<div class="yedp-layout" style="color:#666; justify-content:center; align-items:center;">Loading Prompt Builder...</div>`;
+
+    const updateOutputs = () => {
+        const widgets = node.widgets;
+        if (!widgets) return;
+
+        const p = node.state;
+        const posOut = container.querySelector(".positive-output");
+        if(!posOut) return;
+
+        const getVal = (cat, id) => categories[cat]?.options?.find(o => o.id === id)?.value || "";
+        
+        const cam = getVal('camera', p.camera);
+        const frame = getVal('framing', p.framing);
+        const ang = getVal('angle', p.angle);
+        const focal = getVal('focal', p.focal);
+        const light = getVal('lighting', p.lighting);
+        const pal = getVal('palette', p.palette);
+        const artist = getVal('artist', p.artist);
+        
+        const styles = (p.style || []).map(s => getVal('style', s)).join(", ");
+        const textures = (p.texture || []).map(t => getVal('texture', t)).join(", ");
+        
+        const dofObj = categories.dof.options[p.dof];
+        const dofVal = dofObj ? dofObj.val : "";
+        const ratio = categories.ratio.options.find(o => o.id === p.ratio)?.value || "";
+
+        let final = "";
+        const parts = [];
+        
+        if (p.mode === 'flux' || p.mode === 'nanobanana') {
+                const prefix = p.mode === 'nanobanana' ? "High-end cinematic photography: " : "";
+                let sentence = `${prefix}`;
+                if (frame) sentence += `${frame} of ${p.subject}`;
+                else sentence += `${p.subject}`; 
+                
+                if (ang) sentence += `, shot at ${ang}`;
+                
+                if (cam) {
+                    if (cam.toLowerCase().startsWith("shot on")) sentence += `, ${cam}`;
+                    else sentence += ` on ${cam}`;
+                }
+                
+                if (focal) sentence += ` with a ${focal}`;
+                if (dofVal) sentence += ` at aperture ${dofVal}`;
+                
+                if (light) sentence += `. The lighting is ${light}`;
+                if (pal) sentence += ` with ${pal} color grade`;
+                
+                if (artist) {
+                    if (artist.toLowerCase().startsWith("directed by") || artist.toLowerCase().startsWith("art by")) {
+                        sentence += `. ${artist}`;
+                    } else {
+                        sentence += `. In the style of ${artist}`;
                     }
                 }
 
-                // --- 1. INITIAL STATE ---
-                this.defaultState = {
-                    mode: "stablediffusion", ratio: "16-9", camera: "arri", framing: "wide",
-                    angle: "eye", focal: "50mm", dof: 2, lighting: "volumetric", palette: "tealorange",
-                    texture: [], style: ["photo", "cine"], artist: "wes",
-                    subject: "A lone astronaut", negative: ""
-                };
-                // Shallow copy to create instance state
-                this.state = Object.assign({}, this.defaultState);
+                if (styles) sentence += `. Visuals: ${styles}`;
+                if (textures) sentence += `. ${textures}`;
+                if (ratio) sentence += `. ${ratio}`;
 
-                // --- 2. CREATE DOM CONTAINER ---
-                const container = document.createElement("div");
-                container.className = "yedp-container";
+                final = sentence;
+                final = final.replace(/\.\./g, '.').replace(/\s+/g, ' ').trim();
                 
-                // Initial Loading State
-                container.innerHTML = `
-                    ${style}
-                    <div class="yedp-layout" style="align-items:center; justify-content:center; color:#666;">
-                        Loading Interface...
-                    </div>
-                `;
+        } else if (p.mode === 'midjourney') {
+            if(styles) parts.push(styles);
+            if(frame) parts.push(`${frame} of ${p.subject}`); else parts.push(`${p.subject}`);
+            if(cam) parts.push(cam);
+            if(focal) parts.push(focal);
+            if(dofVal) parts.push(dofVal); 
+            if(ang) parts.push(ang);
+            if(light) parts.push(light);
+            if(pal) parts.push(pal);
+            if(artist) parts.push(artist);
+            if(textures) parts.push(textures);
+            final = parts.filter(x=>x).join(", ") + (ratio ? " " + ratio : "");
+        } else {
+            if(styles) parts.push(styles);
+            if(frame) parts.push(`${frame} of ${p.subject}`); else parts.push(`${p.subject}`);
+            if(cam) parts.push(cam);
+            if(focal) parts.push(focal);
+            if(dofVal) parts.push(`aperture ${dofVal}`);
+            if(ang) parts.push(ang);
+            if(light) parts.push(light);
+            if(pal) parts.push(pal);
+            if(artist) parts.push(artist);
+            if(textures) parts.push(textures);
+            final = parts.filter(x=>x).join(", ");
+        }
+        
+        posOut.value = final;
+        if(widgets[0]) widgets[0].value = JSON.stringify(p);
+        if(widgets[1]) widgets[1].value = final;
+        if(widgets[2]) widgets[2].value = p.negative;
+    };
 
-                // --- 3. HELPER FUNCTIONS ---
+    const updatePreview = (catKey, id) => {
+        updatePreviewLogic(container, catKey, id, "prompt", node);
+    };
+
+    const renderControls = () => {
+        const controlsArea = container.querySelector(".dynamic-controls");
+        if(!controlsArea) return; 
+        controlsArea.innerHTML = "";
+        
+        Object.keys(categories).forEach(key => {
+            const cat = categories[key];
+            const label = document.createElement("div");
+            label.className = "yedp-label";
+            label.innerText = cat.title;
+            controlsArea.appendChild(label);
+            const wrapper = document.createElement("div");
+            
+            if (cat.type === 'slider') {
+                wrapper.className = "yedp-slider-wrapper";
+                const header = document.createElement("div");
+                header.className = "yedp-slider-header";
+                const valSpan = document.createElement("span");
+                valSpan.innerText = cat.options[node.state[key]].label;
+                header.appendChild(valSpan);
+                wrapper.appendChild(header);
                 
-                // Update Python Nodes & Textareas
-                const updateOutputs = () => {
-                    const widgets = this.widgets;
-                    if (!widgets) return;
-
-                    const p = this.state;
-                    const posOut = container.querySelector(".positive-output");
-                    
-                    // Safety: UI might not be rendered yet
-                    if(!posOut) return;
-
-                    // Helper to get value string from ID
-                    const getVal = (cat, id) => categories[cat]?.options?.find(o => o.id === id)?.value || "";
-                    
-                    const cam = getVal('camera', p.camera);
-                    const frame = getVal('framing', p.framing);
-                    const ang = getVal('angle', p.angle);
-                    const focal = getVal('focal', p.focal);
-                    const light = getVal('lighting', p.lighting);
-                    const pal = getVal('palette', p.palette);
-                    const artist = getVal('artist', p.artist);
-                    
-                    // Arrays
-                    const styles = (p.style || []).map(s => getVal('style', s)).join(", ");
-                    const textures = (p.texture || []).map(t => getVal('texture', t)).join(", ");
-                    
-                    // Slider value
-                    const dofObj = categories.dof.options[p.dof];
-                    const dofVal = dofObj ? dofObj.val : "";
-                    
-                    const ratio = categories.ratio.options.find(o => o.id === p.ratio)?.value || "";
-
-                    let final = "";
-                    const parts = [];
-                    
-                    // Assemble based on mode
-                    if (p.mode === 'flux' || p.mode === 'nanobanana') {
-                         const prefix = p.mode === 'nanobanana' ? "High-end cinematic photography: " : "";
-                         // Handle empty framing or other missing parts gracefully in template string if needed, 
-                         // but standard JS template strings are fine with empty variables.
-                         final = `${prefix}A ${frame} of ${p.subject}, shot at ${ang} on ${cam} with a ${focal} at aperture ${dofVal}. The lighting is ${light} with ${pal} color grade. In the style of ${artist}. Visuals: ${styles}. ${textures}. ${ratio}`;
-                         // Clean up double spaces from missing values
-                         final = final.replace(/\s+/g, ' ').replace(/\s+\./g, '.').trim();
-                    } else if (p.mode === 'midjourney') {
-                        // MJ Style
-                        if(styles) parts.push(styles);
-                        // Handle Frame specially
-                        if(frame) parts.push(`${frame} of ${p.subject}`);
-                        else parts.push(`${p.subject}`);
-                        
-                        if(cam) parts.push(cam);
-                        if(focal) parts.push(focal);
-                        if(dofVal) parts.push(dofVal); 
-                        if(ang) parts.push(ang);
-                        if(light) parts.push(light);
-                        if(pal) parts.push(pal);
-                        if(artist) parts.push(artist);
-                        if(textures) parts.push(textures);
-                        
-                        final = parts.filter(x=>x).join(", ") + (ratio ? " " + ratio : "");
-                    } else {
-                        // SD Standard
-                        if(styles) parts.push(styles);
-                        if(frame) parts.push(`${frame} of ${p.subject}`);
-                        else parts.push(`${p.subject}`);
-                        
-                        if(cam) parts.push(cam);
-                        if(focal) parts.push(focal);
-                        if(dofVal) parts.push(`aperture ${dofVal}`);
-                        if(ang) parts.push(ang);
-                        if(light) parts.push(light);
-                        if(pal) parts.push(pal);
-                        if(artist) parts.push(artist);
-                        if(textures) parts.push(textures);
-                        
-                        final = parts.filter(x=>x).join(", ");
-                    }
-                    
-                    // Update UI Textarea
-                    posOut.value = final;
-
-                    // Update ComfyUI Hidden Widgets 
-                    if(widgets[0]) widgets[0].value = JSON.stringify(p);
-                    if(widgets[1]) widgets[1].value = final;
-                    if(widgets[2]) widgets[2].value = p.negative;
-                };
-
-                // Update Preview Image AND Info Text
-                const updatePreview = (catKey, id) => {
-                    const img = container.querySelector(".yedp-preview-img");
-                    const infoTitle = container.querySelector(".yedp-info-title");
-                    const infoText = container.querySelector(".yedp-info-text");
-                    
-                    if(!img) return; // Guard
-                    
-                    // Find option data
-                    let opt;
-                    if(catKey === 'dof') {
-                        opt = categories.dof.options[id]; // id is index for slider
-                    } else {
-                        opt = categories[catKey].options.find(o=>o.id === id);
-                    }
-
-                    if (!opt) return;
-
-                    // Update Info Box
-                    if(opt && infoTitle && infoText) {
-                        infoTitle.innerText = opt.label;
-                        infoText.innerText = opt.desc || "No description available.";
-                    }
-
-                    // Update Image (Skip for ratios as they usually don't have exciting previews)
-                    if (categories[catKey].type === 'ratio') return;
-
-                    img.classList.remove("loaded");
-                    
-                    // Cache Buster to prevent stuck 404s
-                    const cb = "?t=" + new Date().getTime();
-                    // Construct filename base
-                    const filenameBase = `${catKey}_${opt.id}`;
-                    
-                    // Reset handlers
-                    img.onload = null;
-                    img.onerror = null;
-
-                    // Success handler
-                    img.onload = () => img.classList.add("loaded");
-                    
-                    // Failure handler with fallback logic
-                    img.onerror = function() {
-                        const currentSrc = this.src;
-                        console.warn("Failed to load:", currentSrc);
-
-                        // Try PNG if JPG fails
-                        if (currentSrc.includes(".jpg")) {
-                            console.log("Attempting PNG fallback...");
-                            this.src = ASSET_PATH + filenameBase + ".png" + cb;
-                        } 
-                        // Try JPEG if PNG fails (rare but possible)
-                        else if (currentSrc.includes(".png")) {
-                            console.log("Attempting JPEG fallback...");
-                            this.src = ASSET_PATH + filenameBase + ".jpeg" + cb;
-                        } 
-                        // Give up and show placeholder
-                        else {
-                            this.src = `https://placehold.co/400x300/222/666?text=${catKey}:${opt.id}`;
-                            this.classList.add("loaded");
-                            // Important: disable onerror to prevent infinite loops
-                            this.onerror = null;
-                        }
-                    };
-
-                    // Start by trying JPG
-                    img.src = ASSET_PATH + filenameBase + ".jpg" + cb;
-                };
-
-                // Render Sidebar Controls
-                const renderControls = () => {
-                    const sidebar = container.querySelector(".yedp-sidebar");
-                    const controlsArea = container.querySelector(".dynamic-controls");
-                    
-                    if(!controlsArea) return; 
-                    controlsArea.innerHTML = "";
-                    
-                    Object.keys(categories).forEach(key => {
-                        const cat = categories[key];
-                        
-                        // Label
-                        const label = document.createElement("div");
-                        label.className = "yedp-label";
-                        label.innerText = cat.title;
-                        controlsArea.appendChild(label);
-
-                        // Container
-                        const wrapper = document.createElement("div");
-                        
-                        if (cat.type === 'slider') {
-                            // SLIDER RENDER
-                            wrapper.className = "yedp-slider-wrapper";
-                            
-                            const header = document.createElement("div");
-                            header.className = "yedp-slider-header";
-                            const valSpan = document.createElement("span");
-                            valSpan.innerText = cat.options[this.state[key]].label;
-                            header.appendChild(valSpan);
-                            wrapper.appendChild(header);
-                            
-                            const range = document.createElement("input");
-                            range.type = "range";
-                            range.min = 0;
-                            range.max = cat.options.length - 1;
-                            range.value = this.state[key];
-                            range.className = "yedp-range";
-                            range.oninput = (e) => {
-                                const idx = parseInt(e.target.value);
-                                this.state[key] = idx;
-                                valSpan.innerText = cat.options[idx].label;
-                                updateOutputs();
-                                updatePreview(key, idx); // Pass index for slider
-                            };
-                            wrapper.appendChild(range);
-                            
-                            const labels = document.createElement("div");
-                            labels.className = "yedp-slider-labels";
-                            labels.innerHTML = "<span>Blurry</span><span>Sharp</span>";
-                            wrapper.appendChild(labels);
-                            
-                        } else if (cat.type === 'ratio' || cat.type === 'multi') {
-                            // GRID RENDER
-                            wrapper.className = "yedp-grid";
-                            cat.options.forEach(opt => {
-                                const btn = document.createElement("div");
-                                const isActive = cat.type === 'multi' 
-                                    ? (this.state[key] && this.state[key].includes(opt.id))
-                                    : (this.state[key] === opt.id);
-                                    
-                                btn.className = `yedp-grid-item ${isActive ? 'active' : ''}`;
-                                btn.innerText = opt.label;
-                                btn.onclick = () => {
-                                    if(cat.type === 'multi') {
-                                        if(!this.state[key]) this.state[key] = [];
-                                        if(this.state[key].includes(opt.id)) 
-                                            this.state[key] = this.state[key].filter(x => x !== opt.id);
-                                        else this.state[key].push(opt.id);
-                                    } else {
-                                        // SINGLE SELECT TOGGLE LOGIC
-                                        if (this.state[key] === opt.id) {
-                                            this.state[key] = ""; // Deselect
-                                        } else {
-                                            this.state[key] = opt.id; // Select
-                                        }
-                                    }
-                                    renderControls(); 
-                                    updatePreview(key, opt.id);
-                                    updateOutputs();
-                                };
-                                // Preview on hover
-                                btn.onmouseenter = () => updatePreview(key, opt.id);
-                                wrapper.appendChild(btn);
-                            });
-                        } else {
-                            // LIST RENDER
-                            wrapper.style.display = "flex";
-                            wrapper.style.flexDirection = "column";
-                            wrapper.style.gap = "4px";
-                            
-                            cat.options.forEach(opt => {
-                                const btn = document.createElement("div");
-                                const isActive = this.state[key] === opt.id;
-                                btn.className = `yedp-btn ${isActive ? 'active' : ''}`;
-                                btn.innerHTML = `<span>${opt.label}</span> ${isActive ? '●' : ''}`;
-                                
-                                // Preview on Hover
-                                btn.onmouseenter = () => updatePreview(key, opt.id);
-                                
-                                btn.onclick = () => {
-                                    // SINGLE SELECT TOGGLE LOGIC
-                                    if (this.state[key] === opt.id) {
-                                        this.state[key] = ""; // Deselect
-                                    } else {
-                                        this.state[key] = opt.id; // Select
-                                    }
-                                    renderControls();
-                                    updateOutputs();
-                                };
-                                wrapper.appendChild(btn);
-                            });
-                        }
-                        controlsArea.appendChild(wrapper);
-                    });
-                };
-
-                // Build Main HTML Structure
-                const buildUI = () => {
-                    container.innerHTML = `
-                        ${style}
-                        <div class="yedp-layout">
-                            <div class="yedp-sidebar">
-                                <div class="yedp-label">Formatting Mode</div>
-                                <select class="yedp-input mode-select">
-                                    <option value="midjourney">Midjourney</option>
-                                    <option value="stablediffusion">Stable Diffusion</option>
-                                    <option value="flux">Flux</option>
-                                    <option value="nanobanana">NanoBanana Pro</option>
-                                </select>
-
-                                <div class="yedp-label">Subject</div>
-                                <input type="text" class="yedp-input subject-input" placeholder="A lone astronaut..." value="${this.state.subject}">
-
-                                <div class="yedp-label">Negative</div>
-                                <textarea class="yedp-textarea negative-input" placeholder="blurry, low quality...">${this.state.negative}</textarea>
-
-                                <div class="dynamic-controls"></div>
-                            </div>
-                            
-                            <div class="yedp-main">
-                                <div class="yedp-label">Visual Reference</div>
-                                <div class="yedp-preview-box">
-                                    <img class="yedp-preview-img" src="" alt="">
-                                </div>
-                                
-                                <!-- Info Box Restored Here -->
-                                <div class="yedp-info-box">
-                                    <span class="yedp-info-title">Welcome</span>
-                                    <span class="yedp-info-text">Hover over any option to see details and a preview image.</span>
-                                </div>
-                                
-                                <div class="yedp-label">Final Prompt String</div>
-                                <!-- REMOVED READONLY so users can edit manually if needed -->
-                                <textarea class="yedp-output positive-output"></textarea>
-                                
-                                <div class="yedp-actions">
-                                    <button class="yedp-btn-action random-btn">🎲 Randomize</button>
-                                    <button class="yedp-btn-action reset-btn" style="background: #333; border-color: #666; margin-left: 5px;">↺ Reset</button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    // Attach Event Listeners
-                    const subjInput = container.querySelector(".subject-input");
-                    const negInput = container.querySelector(".negative-input");
-                    const modeSelect = container.querySelector(".mode-select");
-                    const randBtn = container.querySelector(".random-btn");
-                    const resetBtn = container.querySelector(".reset-btn");
-                    const posOut = container.querySelector(".positive-output"); // Final Output Box
-
-                    subjInput.oninput = (e) => { this.state.subject = e.target.value; updateOutputs(); };
-                    negInput.oninput = (e) => { this.state.negative = e.target.value; updateOutputs(); };
-                    modeSelect.onchange = (e) => { this.state.mode = e.target.value; updateOutputs(); };
-                    
-                    // NEW: Add Listener for Manual Edits
-                    // This pushes manual text changes back to the ComfyUI widget
-                    posOut.oninput = (e) => {
-                        const widgets = this.widgets;
-                        if(widgets && widgets[1]) {
-                            widgets[1].value = e.target.value; 
-                        }
-                    };
-                    
-                    // Randomizer
-                    randBtn.onclick = () => {
-                        this.state.camera = categories.camera.options[Math.floor(Math.random()*categories.camera.options.length)].id;
-                        this.state.lighting = categories.lighting.options[Math.floor(Math.random()*categories.lighting.options.length)].id;
-                        this.state.palette = categories.palette.options[Math.floor(Math.random()*categories.palette.options.length)].id;
-                        this.state.artist = categories.artist.options[Math.floor(Math.random()*categories.artist.options.length)].id;
-                        this.state.style = [categories.style.options[Math.floor(Math.random()*categories.style.options.length)].id];
-                        this.state.dof = Math.floor(Math.random()*categories.dof.options.length);
-                        
-                        renderControls();
-                        updateOutputs();
-                        updatePreview('camera', this.state.camera);
-                    };
-
-                    // Reset
-                    resetBtn.onclick = () => {
-                        this.state.camera = "";
-                        this.state.framing = "";
-                        this.state.angle = "";
-                        this.state.focal = "";
-                        this.state.lighting = "";
-                        this.state.palette = "";
-                        this.state.artist = "";
-                        this.state.style = [];
-                        this.state.texture = [];
-                        this.state.ratio = "16-9";
-                        this.state.dof = 2;
-                        
-                        renderControls();
-                        updateOutputs();
-                        updatePreview('camera', 'arri'); // Reset preview to a default
-                    };
-
-                    // Initial Render
-                    modeSelect.value = this.state.mode;
-                    renderControls();
+                const range = document.createElement("input");
+                range.type = "range"; range.min = 0; range.max = cat.options.length - 1;
+                range.value = node.state[key]; range.className = "yedp-range";
+                range.oninput = (e) => {
+                    const idx = parseInt(e.target.value);
+                    node.state[key] = idx;
+                    valSpan.innerText = cat.options[idx].label;
                     updateOutputs();
-                    updatePreview('camera', this.state.camera);
+                    updatePreview(key, idx); 
                 };
-
-                // --- 4. REGISTER WIDGET ---
-                // We use addDOMWidget to inject our HTML
-                this.addDOMWidget("cinematic_ui", "html", container, {
-                    getValue: () => this.state,
-                    setValue: (v) => { 
-                        // Restore state from saved workflow
-                        if (v && typeof v === 'object') {
-                            this.state = Object.assign({}, this.defaultState, v);
+                wrapper.appendChild(range);
+                const labels = document.createElement("div");
+                labels.className = "yedp-slider-labels";
+                labels.innerHTML = "<span>Blurry</span><span>Sharp</span>";
+                wrapper.appendChild(labels);
+            } else if (cat.type === 'ratio' || cat.type === 'multi') {
+                wrapper.className = "yedp-grid";
+                cat.options.forEach(opt => {
+                    const btn = document.createElement("div");
+                    const isActive = cat.type === 'multi' 
+                        ? (node.state[key] && node.state[key].includes(opt.id))
+                        : (node.state[key] === opt.id);
+                        
+                    btn.className = `yedp-grid-item ${isActive ? 'active' : ''}`;
+                    btn.innerText = opt.label;
+                    btn.onclick = () => {
+                        if(cat.type === 'multi') {
+                            if(!node.state[key]) node.state[key] = [];
+                            if(node.state[key].includes(opt.id)) 
+                                node.state[key] = node.state[key].filter(x => x !== opt.id);
+                            else node.state[key].push(opt.id);
+                        } else {
+                            if (node.state[key] === opt.id) node.state[key] = "";
+                            else node.state[key] = opt.id;
                         }
-                        // Trigger build if not built
-                        setTimeout(buildUI, 50);
-                    },
+                        renderControls(); updatePreview(key, opt.id); updateOutputs();
+                    };
+                    btn.onmouseenter = () => updatePreview(key, opt.id);
+                    wrapper.appendChild(btn);
+                });
+            } else {
+                wrapper.style.display = "flex"; wrapper.style.flexDirection = "column"; wrapper.style.gap = "4px";
+                cat.options.forEach(opt => {
+                    const btn = document.createElement("div");
+                    const isActive = node.state[key] === opt.id;
+                    btn.className = `yedp-btn ${isActive ? 'active' : ''}`;
+                    btn.innerHTML = `<span>${opt.label}</span> ${isActive ? '●' : ''}`;
+                    btn.onmouseenter = () => updatePreview(key, opt.id);
+                    btn.onclick = () => {
+                        if (node.state[key] === opt.id) node.state[key] = "";
+                        else node.state[key] = opt.id;
+                        renderControls(); updateOutputs();
+                    };
+                    wrapper.appendChild(btn);
+                });
+            }
+            controlsArea.appendChild(wrapper);
+        });
+    };
+
+    const buildUI = () => {
+        container.innerHTML = `
+            ${style}
+            <div class="yedp-layout">
+                <div class="yedp-sidebar">
+                    <div class="yedp-label">Formatting Mode</div>
+                    <select class="yedp-input mode-select">
+                        <option value="midjourney">Midjourney</option>
+                        <option value="stablediffusion">Stable Diffusion</option>
+                        <option value="flux">Flux</option>
+                        <option value="nanobanana">NanoBanana Pro</option>
+                    </select>
+
+                    <div class="yedp-label">Subject</div>
+                    <input type="text" class="yedp-input subject-input" placeholder="A lone astronaut..." value="${node.state.subject}">
+
+                    <div class="yedp-label">Negative</div>
+                    <textarea class="yedp-textarea negative-input" placeholder="blurry, low quality...">${node.state.negative}</textarea>
+
+                    <div class="dynamic-controls"></div>
+                </div>
+                
+                <div class="yedp-main">
+                    <div class="yedp-label">Visual Reference</div>
+                    <div class="yedp-preview-box">
+                        <img class="yedp-preview-img" src="" alt="">
+                    </div>
+                    
+                    <div class="yedp-info-box">
+                        <span class="yedp-info-title">Welcome</span>
+                        <span class="yedp-info-text">Hover over any option to see details and a preview image.</span>
+                    </div>
+                    
+                    <div class="yedp-label">Final Prompt String</div>
+                    <textarea class="yedp-output positive-output"></textarea>
+                    
+                    <div class="yedp-actions">
+                        <button class="yedp-btn-action random-btn">🎲 Randomize</button>
+                        <button class="yedp-btn-action reset-btn" style="background: #333; border-color: #666; margin-left: 5px;">↺ Reset</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const subjInput = container.querySelector(".subject-input");
+        const negInput = container.querySelector(".negative-input");
+        const modeSelect = container.querySelector(".mode-select");
+        const randBtn = container.querySelector(".random-btn");
+        const resetBtn = container.querySelector(".reset-btn");
+        const posOut = container.querySelector(".positive-output");
+
+        subjInput.oninput = (e) => { node.state.subject = e.target.value; updateOutputs(); };
+        negInput.oninput = (e) => { node.state.negative = e.target.value; updateOutputs(); };
+        modeSelect.onchange = (e) => { node.state.mode = e.target.value; updateOutputs(); };
+        posOut.oninput = (e) => { if(node.widgets && node.widgets[1]) node.widgets[1].value = e.target.value; };
+        
+        randBtn.onclick = () => {
+            node.state.camera = categories.camera.options[Math.floor(Math.random()*categories.camera.options.length)].id;
+            node.state.lighting = categories.lighting.options[Math.floor(Math.random()*categories.lighting.options.length)].id;
+            node.state.palette = categories.palette.options[Math.floor(Math.random()*categories.palette.options.length)].id;
+            node.state.artist = categories.artist.options[Math.floor(Math.random()*categories.artist.options.length)].id;
+            node.state.style = [categories.style.options[Math.floor(Math.random()*categories.style.options.length)].id];
+            node.state.dof = Math.floor(Math.random()*categories.dof.options.length);
+            renderControls(); updateOutputs(); updatePreview('camera', node.state.camera);
+        };
+
+        resetBtn.onclick = () => {
+            node.state.camera = ""; node.state.framing = ""; node.state.angle = "";
+            node.state.focal = ""; node.state.lighting = ""; node.state.palette = "";
+            node.state.artist = ""; node.state.style = []; node.state.texture = [];
+            node.state.ratio = "16-9"; node.state.dof = 2;
+            renderControls(); updateOutputs(); updatePreview('camera', 'arri'); 
+        };
+
+        modeSelect.value = node.state.mode;
+        renderControls();
+        updateOutputs();
+        updatePreview('camera', node.state.camera || 'arri');
+    };
+
+    return { container, buildUI };
+}
+
+
+// 2. LOADER UI
+function createLoaderUI(node) {
+    node.bgcolor = "#222"; 
+    
+    if (node.widgets) {
+        for (let w of node.widgets) {
+            w.type = "hidden"; 
+            w.computeSize = () => [0, -4]; 
+        }
+    }
+
+    // Loader uses a simpler state tracking the currently selected item
+    node.defaultState = {
+        selectedCategory: null,
+        selectedId: null
+    };
+    node.state = Object.assign({}, node.defaultState);
+
+    const container = document.createElement("div");
+    container.className = "yedp-container";
+    container.innerHTML = `${style}<div class="yedp-layout" style="color:#666; justify-content:center; align-items:center;">Loading Reference Loader...</div>`;
+
+    const updatePreview = (catKey, id) => {
+        updatePreviewLogic(container, catKey, id, "loader", node);
+    };
+
+    const renderControls = () => {
+        const controlsArea = container.querySelector(".dynamic-controls");
+        if(!controlsArea) return; 
+        controlsArea.innerHTML = "";
+        
+        Object.keys(categories).forEach(key => {
+            // SKIP RATIO FOR LOADER
+            if (key === 'ratio') return;
+            
+            const cat = categories[key];
+            const label = document.createElement("div");
+            label.className = "yedp-label";
+            label.innerText = cat.title;
+            controlsArea.appendChild(label);
+            const wrapper = document.createElement("div");
+            
+            // For Loader, simplified rendering: List style or Grid for all, but enforce Single Select
+            if (cat.type === 'slider') {
+                // Sliders don't make much sense for "loading a specific image" unless we treat the slider positions as distinct images
+                // Let's render them as buttons for the loader to make "one at a time" obvious
+                wrapper.style.display = "flex"; wrapper.style.flexDirection = "column"; wrapper.style.gap = "4px";
+                cat.options.forEach((opt, idx) => {
+                     // Handle slider options which are array indices
+                     const optId = idx;
+                     const optLabel = opt.label;
+                     const btn = document.createElement("div");
+                     // Check if this specific slider value is the globally selected item
+                     const isActive = (node.state.selectedCategory === key && node.state.selectedId === optId);
+                     
+                     btn.className = `yedp-btn ${isActive ? 'active' : ''}`;
+                     btn.innerHTML = `<span>${optLabel}</span> ${isActive ? '●' : ''}`;
+                     
+                     btn.onmouseenter = () => updatePreview(key, optId);
+                     btn.onclick = () => {
+                         // Toggle off if clicking same
+                         if (isActive) {
+                             node.state.selectedCategory = null;
+                             node.state.selectedId = null;
+                         } else {
+                             node.state.selectedCategory = key;
+                             node.state.selectedId = optId;
+                         }
+                         renderControls();
+                         // If selected, show preview. If deselected, maybe clear?
+                         if (node.state.selectedCategory) {
+                            updatePreview(node.state.selectedCategory, node.state.selectedId);
+                         }
+                     };
+                     wrapper.appendChild(btn);
                 });
 
-                // --- 5. INITIALIZE ---
-                requestAnimationFrame(() => {
-                    this.setSize([750, 850]); // Force node size (taller for new options)
-                    buildUI(); // Build immediately for new nodes
+            } else if (cat.type === 'ratio' || cat.type === 'multi') {
+                wrapper.className = "yedp-grid";
+                cat.options.forEach(opt => {
+                    const btn = document.createElement("div");
+                    // Global Single Select Logic
+                    const isActive = (node.state.selectedCategory === key && node.state.selectedId === opt.id);
+                        
+                    btn.className = `yedp-grid-item ${isActive ? 'active' : ''}`;
+                    btn.innerText = opt.label;
+                    btn.onclick = () => {
+                        if (isActive) {
+                             node.state.selectedCategory = null;
+                             node.state.selectedId = null;
+                        } else {
+                             node.state.selectedCategory = key;
+                             node.state.selectedId = opt.id;
+                        }
+                        renderControls(); 
+                        if (node.state.selectedCategory) updatePreview(key, opt.id);
+                    };
+                    btn.onmouseenter = () => updatePreview(key, opt.id);
+                    wrapper.appendChild(btn);
                 });
+            } else {
+                wrapper.style.display = "flex"; wrapper.style.flexDirection = "column"; wrapper.style.gap = "4px";
+                cat.options.forEach(opt => {
+                    const btn = document.createElement("div");
+                    const isActive = (node.state.selectedCategory === key && node.state.selectedId === opt.id);
 
+                    btn.className = `yedp-btn ${isActive ? 'active' : ''}`;
+                    btn.innerHTML = `<span>${opt.label}</span> ${isActive ? '●' : ''}`;
+                    btn.onmouseenter = () => updatePreview(key, opt.id);
+                    btn.onclick = () => {
+                        if (isActive) {
+                             node.state.selectedCategory = null;
+                             node.state.selectedId = null;
+                        } else {
+                             node.state.selectedCategory = key;
+                             node.state.selectedId = opt.id;
+                        }
+                        renderControls();
+                        if (node.state.selectedCategory) updatePreview(key, opt.id);
+                    };
+                    wrapper.appendChild(btn);
+                });
+            }
+            controlsArea.appendChild(wrapper);
+        });
+    };
+
+    const buildUI = () => {
+        container.innerHTML = `
+            ${style}
+            <div class="yedp-layout">
+                <div class="yedp-sidebar">
+                    <div style="padding:10px; color:#888; font-size:11px; margin-bottom:10px;">
+                        Select <strong>one</strong> reference image to load.
+                    </div>
+                    <div class="dynamic-controls"></div>
+                </div>
+                
+                <div class="yedp-main">
+                    <div class="yedp-label">Selected Reference</div>
+                    <div class="yedp-preview-box">
+                        <img class="yedp-preview-img" src="" alt="">
+                    </div>
+                    
+                    <div class="yedp-info-box">
+                        <span class="yedp-info-title">Welcome</span>
+                        <span class="yedp-info-text">Hover to preview. Click to select (Single Selection).</span>
+                    </div>
+                    
+                    <div class="yedp-actions" style="margin-top:auto">
+                         <button class="yedp-btn-action reset-btn" style="background: #333; border-color: #666;">↺ Deselect All</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const resetBtn = container.querySelector(".reset-btn");
+        resetBtn.onclick = () => {
+            node.state.selectedCategory = null;
+            node.state.selectedId = null;
+            renderControls(); 
+            // Maybe clear preview or show placeholder?
+        };
+
+        renderControls();
+        if (node.state.selectedCategory) {
+            updatePreview(node.state.selectedCategory, node.state.selectedId);
+        }
+    };
+
+    return { container, buildUI };
+}
+
+
+// --- REGISTER EXTENSION ---
+app.registerExtension({
+    name: "Yedp.CinematicPrompt",
+    async beforeRegisterNodeDef(nodeType, nodeData, app) {
+        
+        // 1. PROMPT BUILDER NODE
+        if (nodeData.name === "CinematicPromptNode") {
+            const onNodeCreated = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = function () {
+                const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
+                const ui = createPromptBuilderUI(this);
+                this.addDOMWidget("cinematic_ui", "html", ui.container, {
+                    getValue: () => this.state,
+                    setValue: (v) => { if (v) this.state = Object.assign({}, this.defaultState, v); setTimeout(ui.buildUI, 50); }
+                });
+                requestAnimationFrame(() => { this.setSize([750, 850]); ui.buildUI(); });
+                return r;
+            };
+        }
+        
+        // 2. REFERENCE LOADER NODE
+        if (nodeData.name === "CinematicLoaderNode") {
+            const onNodeCreated = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = function () {
+                const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
+                const ui = createLoaderUI(this);
+                this.addDOMWidget("cinematic_loader_ui", "html", ui.container, {
+                    getValue: () => this.state,
+                    setValue: (v) => { if (v) this.state = Object.assign({}, this.defaultState, v); setTimeout(ui.buildUI, 50); }
+                });
+                requestAnimationFrame(() => { this.setSize([750, 850]); ui.buildUI(); });
                 return r;
             };
         }
