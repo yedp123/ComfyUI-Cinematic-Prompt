@@ -314,7 +314,6 @@ const categories = {
             {id:"mono", label:"Monochromatic", value:"monochromatic color scheme", desc:"Using shades of a single color."},
             {id:"neonpal", label:"Neon Palette", value:"neon color palette", desc:"Electric greens, pinks, purples."},
             {id:"sepia", label:"Sepia", value:"sepia tone", desc:"Old western, flashback, antique."},
-            {id:"vapor", label:"Vaporwave", value:"vaporwave aesthetic", desc:"Retro-futuristic 80s dreamscapes with pink and teal hues."}
         ]
     },
     texture: { 
