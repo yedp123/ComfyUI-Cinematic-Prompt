@@ -22,7 +22,7 @@ const style = `
         flex-direction: column;
         width: 100%;
         height: 100%;
-        min-height: 600px;
+        min-height: 200px; /* CHANGED: Reduced from 600px to allow vertical scaling */
         overflow: hidden;
         border-radius: 8px;
         font-size: 12px;
@@ -34,7 +34,8 @@ const style = `
     
     /* Left Sidebar */
     .yedp-sidebar { 
-        width: 280px; 
+        width: 35%; 
+        min-width: 140px; /* CHANGED: Reduced from 200px to keep proportions when scaling down */
         background: var(--bg-panel); 
         border-right: 1px solid var(--border); 
         overflow-y: auto; 
