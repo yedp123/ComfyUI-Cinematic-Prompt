@@ -397,13 +397,8 @@ const updatePreviewLogic = (container, catKey, id, nodeTypeStr, node) => {
     // SKIP RATIO FOR PREVIEW (Loader Logic uses this to skip invalid loads)
     if (categories[catKey].type === 'ratio') return; 
 
-    // Update Hidden Widget for LOADER NODE only
-    if (nodeTypeStr === "loader") {
-        if (node.widgets && node.widgets[0]) {
-            // Send "category_id" (e.g. "camera_arri") to Python
-            node.widgets[0].value = `${catKey}_${opt.id}`;
-        }
-    }
+    // !!! MODIFIED SECTION: Removed the widget update block from here. 
+    // This ensures hovering only updates the image preview, not the node output value.
 
     img.classList.remove("loaded");
     const cb = "?t=" + new Date().getTime();
@@ -760,33 +755,36 @@ function createLoaderUI(node) {
                 // Let's render them as buttons for the loader to make "one at a time" obvious
                 wrapper.style.display = "flex"; wrapper.style.flexDirection = "column"; wrapper.style.gap = "4px";
                 cat.options.forEach((opt, idx) => {
-                     // Handle slider options which are array indices
-                     const optId = idx;
-                     const optLabel = opt.label;
-                     const btn = document.createElement("div");
-                     // Check if this specific slider value is the globally selected item
-                     const isActive = (node.state.selectedCategory === key && node.state.selectedId === optId);
-                     
-                     btn.className = `yedp-btn ${isActive ? 'active' : ''}`;
-                     btn.innerHTML = `<span>${optLabel}</span> ${isActive ? '●' : ''}`;
-                     
-                     btn.onmouseenter = () => updatePreview(key, optId);
-                     btn.onclick = () => {
-                         // Toggle off if clicking same
-                         if (isActive) {
+                      // Handle slider options which are array indices
+                      const optId = idx;
+                      const optLabel = opt.label;
+                      const btn = document.createElement("div");
+                      // Check if this specific slider value is the globally selected item
+                      const isActive = (node.state.selectedCategory === key && node.state.selectedId === optId);
+                      
+                      btn.className = `yedp-btn ${isActive ? 'active' : ''}`;
+                      btn.innerHTML = `<span>${optLabel}</span> ${isActive ? '●' : ''}`;
+                      
+                      btn.onmouseenter = () => updatePreview(key, optId);
+                      btn.onclick = () => {
+                          // Toggle off if clicking same
+                          if (isActive) {
                              node.state.selectedCategory = null;
                              node.state.selectedId = null;
-                         } else {
+                             if(node.widgets[0]) node.widgets[0].value = "";
+                          } else {
                              node.state.selectedCategory = key;
                              node.state.selectedId = optId;
-                         }
-                         renderControls();
-                         // If selected, show preview. If deselected, maybe clear?
-                         if (node.state.selectedCategory) {
-                            updatePreview(node.state.selectedCategory, node.state.selectedId);
-                         }
-                     };
-                     wrapper.appendChild(btn);
+                             // !!! MODIFIED: Update the widget output only here on CLICK
+                             if(node.widgets[0]) node.widgets[0].value = `${key}_${opt.id}`;
+                          }
+                          renderControls();
+                          // If selected, show preview. If deselected, maybe clear?
+                          if (node.state.selectedCategory) {
+                             updatePreview(node.state.selectedCategory, node.state.selectedId);
+                          }
+                      };
+                      wrapper.appendChild(btn);
                 });
 
             } else if (cat.type === 'ratio' || cat.type === 'multi') {
@@ -802,9 +800,12 @@ function createLoaderUI(node) {
                         if (isActive) {
                              node.state.selectedCategory = null;
                              node.state.selectedId = null;
+                             if(node.widgets[0]) node.widgets[0].value = "";
                         } else {
                              node.state.selectedCategory = key;
                              node.state.selectedId = opt.id;
+                             // !!! MODIFIED: Update the widget output only here on CLICK
+                             if(node.widgets[0]) node.widgets[0].value = `${key}_${opt.id}`;
                         }
                         renderControls(); 
                         if (node.state.selectedCategory) updatePreview(key, opt.id);
@@ -825,9 +826,12 @@ function createLoaderUI(node) {
                         if (isActive) {
                              node.state.selectedCategory = null;
                              node.state.selectedId = null;
+                             if(node.widgets[0]) node.widgets[0].value = "";
                         } else {
                              node.state.selectedCategory = key;
                              node.state.selectedId = opt.id;
+                             // !!! MODIFIED: Update the widget output only here on CLICK
+                             if(node.widgets[0]) node.widgets[0].value = `${key}_${opt.id}`;
                         }
                         renderControls();
                         if (node.state.selectedCategory) updatePreview(key, opt.id);
@@ -872,6 +876,7 @@ function createLoaderUI(node) {
         resetBtn.onclick = () => {
             node.state.selectedCategory = null;
             node.state.selectedId = null;
+            if(node.widgets[0]) node.widgets[0].value = ""; // Clear output on reset
             renderControls(); 
             // Maybe clear preview or show placeholder?
         };
